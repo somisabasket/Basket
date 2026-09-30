@@ -32,12 +32,17 @@ import { RosterManagerModal } from './components/RosterManagerModal';
 import { Header } from './components/Header';
 import { NewGameModal } from './components/NewGameModal';
 import { DownloadAppModal } from './components/DownloadAppModal';
+import { DataTableManager } from './components/DataTableManager';
+import { FileSpreadsheet, Target, Layers } from 'lucide-react';
 
 export default function App() {
   // Persistence state
   const [players, setPlayers] = useState<Player[]>(() => loadSavedPlayers());
   const [shots, setShots] = useState<Shot[]>(() => loadSavedShots());
   const [playerStats, setPlayerStats] = useState<Record<string, PlayerGameStats>>(() => loadSavedPlayerStats());
+
+  // Main UI View Mode: 'table_and_court' | 'court_first' | 'table_only'
+  const [mainView, setMainView] = useState<'table_and_court' | 'court_first' | 'table_only'>('table_and_court');
 
   // Active filters and selectors
   const [activePlayerId, setActivePlayerId] = useState<string | 'all'>('all');
@@ -252,6 +257,29 @@ export default function App() {
     setShots((prev) => prev.filter((s) => s.id !== shotId));
   };
 
+  // Add single shot from data table
+  const handleAddTableShot = (shot: Shot) => {
+    setShots((prev) => [...prev, shot]);
+    handleShotFeedback(shot.made, shot.isThree);
+  };
+
+  // Add multiple shots in batch from data table
+  const handleAddBatchShots = (newShots: Shot[]) => {
+    setShots((prev) => [...prev, ...newShots]);
+    if (soundEnabled) {
+      playSound('stat');
+    }
+  };
+
+  // Clear all shots from table
+  const handleClearTableShots = () => {
+    if (shots.length === 0) return;
+    if (window.confirm('¿Seguro que deseas eliminar todos los tiros registrados en la tabla y la cancha?')) {
+      clearAllShots();
+      setShots([]);
+    }
+  };
+
   // New Game / Reset confirmation
   const handleConfirmNewGame = () => {
     setShots([]);
@@ -374,62 +402,268 @@ export default function App() {
           }}
         />
 
-        {/* 2-Column Responsive Layout: Court on Left, Statistics on Right */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
-          {/* Left Column: Interactive Basketball Court */}
-          <div className="lg:col-span-7 flex flex-col space-y-3">
-            <Court
-              shots={filteredShots}
+        {/* Navigation Bar: View Mode Switcher */}
+        <div className="flex flex-wrap items-center justify-between gap-3 bg-slate-900 border border-slate-800 p-2.5 rounded-2xl shadow-md">
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={() => setMainView('table_and_court')}
+              className={`px-3 py-1.5 text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 cursor-pointer ${
+                mainView === 'table_and_court'
+                  ? 'bg-amber-500 text-slate-950 shadow-md font-extrabold'
+                  : 'text-slate-300 hover:text-white hover:bg-slate-800'
+              }`}
+            >
+              <FileSpreadsheet className="w-4 h-4" />
+              Tabla de Ingreso + Cancha
+            </button>
+            <button
+              onClick={() => setMainView('court_first')}
+              className={`px-3 py-1.5 text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 cursor-pointer ${
+                mainView === 'court_first'
+                  ? 'bg-amber-500 text-slate-950 shadow-md font-extrabold'
+                  : 'text-slate-300 hover:text-white hover:bg-slate-800'
+              }`}
+            >
+              <Target className="w-4 h-4" />
+              Cancha + Estadísticas
+            </button>
+            <button
+              onClick={() => setMainView('table_only')}
+              className={`px-3 py-1.5 text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 cursor-pointer ${
+                mainView === 'table_only'
+                  ? 'bg-amber-500 text-slate-950 shadow-md font-extrabold'
+                  : 'text-slate-300 hover:text-white hover:bg-slate-800'
+              }`}
+            >
+              <Layers className="w-4 h-4" />
+              Solo Planilla / Tabla
+            </button>
+          </div>
+
+          <div className="text-xs text-slate-400 font-medium hidden sm:block">
+            {mainView === 'table_and_court' && 'Ingresa filas a mano en la tabla y observa el mapa y estadísticas en tiempo real'}
+            {mainView === 'court_first' && 'Modo táctico de cancha interactiva y desglose estadístico'}
+            {mainView === 'table_only' && 'Planilla completa a ancho extendido para carga masiva'}
+          </div>
+        </div>
+
+        {/* VIEW 1: TABLE AND COURT (Primary mode requested by user) */}
+        {mainView === 'table_and_court' && (
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+            {/* Left Column: Interactive Data Table */}
+            <div className="lg:col-span-7 flex flex-col space-y-4">
+              <DataTableManager
+                players={players}
+                shots={shots}
+                playerStats={playerStats}
+                activePlayerId={activePlayerId}
+                onSelectPlayer={setActivePlayerId}
+                onAddShot={handleAddTableShot}
+                onAddBatchShots={handleAddBatchShots}
+                onDeleteShot={handleDeleteShot}
+                onToggleShotResult={handleToggleShotResult}
+                onUpdatePlayerStat={handleUpdatePlayerStat}
+                onClearShots={handleClearTableShots}
+              />
+            </div>
+
+            {/* Right Column: Court visualization + Live Stats */}
+            <div className="lg:col-span-5 flex flex-col space-y-4">
+              <Court
+                shots={filteredShots}
+                players={players}
+                playerStats={playerStats}
+                activePlayerId={activePlayerId}
+                onSelectPlayer={setActivePlayerId}
+                onOpenRosterManager={() => setRosterManagerOpen(true)}
+                onOpenNewPlayerModal={() => {
+                  setPlayerToEdit(null);
+                  setPlayerModalOpen(true);
+                }}
+                selectedZoneFilter={selectedZoneFilter}
+                onSelectZoneFilter={setSelectedZoneFilter}
+                onCourtClick={handleCourtClick}
+                onDeleteShot={handleDeleteShot}
+                onToggleShotResult={handleToggleShotResult}
+                courtTheme={courtTheme}
+                onToggleTheme={() =>
+                  setCourtTheme((prev) => (prev === 'hardwood' ? 'tactical' : 'hardwood'))
+                }
+                viewMode={viewMode}
+                onChangeViewMode={setViewMode}
+                zoneStats={zoneStats}
+                fastMode={fastMode}
+                fastModeResult={fastModeResult}
+                onToggleFastModeResult={() => setFastModeResult((prev) => !prev)}
+                onToggleFastMode={() => setFastMode((prev) => !prev)}
+                soundEnabled={soundEnabled}
+                onToggleSound={() => setSoundEnabled((prev) => !prev)}
+                onUndoLastShot={handleUndoLastShot}
+                canUndo={shots.length > 0}
+                onUpdatePlayerStat={handleUpdatePlayerStat}
+              />
+
+              <StatsDashboard
+                overallStats={overallStats}
+                zoneStats={zoneStats}
+                players={players}
+                shots={filteredShots}
+                playerStats={playerStats}
+                onUpdatePlayerStat={handleUpdatePlayerStat}
+                activePlayerId={activePlayerId}
+                selectedZoneFilter={selectedZoneFilter}
+                onSelectZoneFilter={setSelectedZoneFilter}
+                onDeleteShot={handleDeleteShot}
+                onToggleShotResult={handleToggleShotResult}
+              />
+            </div>
+          </div>
+        )}
+
+        {/* VIEW 2: COURT FIRST */}
+        {mainView === 'court_first' && (
+          <div className="space-y-5">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+              <div className="lg:col-span-7 flex flex-col space-y-3">
+                <Court
+                  shots={filteredShots}
+                  players={players}
+                  playerStats={playerStats}
+                  activePlayerId={activePlayerId}
+                  onSelectPlayer={setActivePlayerId}
+                  onOpenRosterManager={() => setRosterManagerOpen(true)}
+                  onOpenNewPlayerModal={() => {
+                    setPlayerToEdit(null);
+                    setPlayerModalOpen(true);
+                  }}
+                  selectedZoneFilter={selectedZoneFilter}
+                  onSelectZoneFilter={setSelectedZoneFilter}
+                  onCourtClick={handleCourtClick}
+                  onDeleteShot={handleDeleteShot}
+                  onToggleShotResult={handleToggleShotResult}
+                  courtTheme={courtTheme}
+                  onToggleTheme={() =>
+                    setCourtTheme((prev) => (prev === 'hardwood' ? 'tactical' : 'hardwood'))
+                  }
+                  viewMode={viewMode}
+                  onChangeViewMode={setViewMode}
+                  zoneStats={zoneStats}
+                  fastMode={fastMode}
+                  fastModeResult={fastModeResult}
+                  onToggleFastModeResult={() => setFastModeResult((prev) => !prev)}
+                  onToggleFastMode={() => setFastMode((prev) => !prev)}
+                  soundEnabled={soundEnabled}
+                  onToggleSound={() => setSoundEnabled((prev) => !prev)}
+                  onUndoLastShot={handleUndoLastShot}
+                  canUndo={shots.length > 0}
+                  onUpdatePlayerStat={handleUpdatePlayerStat}
+                />
+              </div>
+
+              <div className="lg:col-span-5 flex flex-col space-y-3">
+                <StatsDashboard
+                  overallStats={overallStats}
+                  zoneStats={zoneStats}
+                  players={players}
+                  shots={filteredShots}
+                  playerStats={playerStats}
+                  onUpdatePlayerStat={handleUpdatePlayerStat}
+                  activePlayerId={activePlayerId}
+                  selectedZoneFilter={selectedZoneFilter}
+                  onSelectZoneFilter={setSelectedZoneFilter}
+                  onDeleteShot={handleDeleteShot}
+                  onToggleShotResult={handleToggleShotResult}
+                />
+              </div>
+            </div>
+
+            <DataTableManager
               players={players}
+              shots={shots}
               playerStats={playerStats}
               activePlayerId={activePlayerId}
               onSelectPlayer={setActivePlayerId}
-              onOpenRosterManager={() => setRosterManagerOpen(true)}
-              onOpenNewPlayerModal={() => {
-                setPlayerToEdit(null);
-                setPlayerModalOpen(true);
-              }}
-              selectedZoneFilter={selectedZoneFilter}
-              onSelectZoneFilter={setSelectedZoneFilter}
-              onCourtClick={handleCourtClick}
+              onAddShot={handleAddTableShot}
+              onAddBatchShots={handleAddBatchShots}
               onDeleteShot={handleDeleteShot}
               onToggleShotResult={handleToggleShotResult}
-              courtTheme={courtTheme}
-              onToggleTheme={() =>
-                setCourtTheme((prev) => (prev === 'hardwood' ? 'tactical' : 'hardwood'))
-              }
-              viewMode={viewMode}
-              onChangeViewMode={setViewMode}
-              zoneStats={zoneStats}
-              fastMode={fastMode}
-              fastModeResult={fastModeResult}
-              onToggleFastModeResult={() => setFastModeResult((prev) => !prev)}
-              onToggleFastMode={() => setFastMode((prev) => !prev)}
-              soundEnabled={soundEnabled}
-              onToggleSound={() => setSoundEnabled((prev) => !prev)}
-              onUndoLastShot={handleUndoLastShot}
-              canUndo={shots.length > 0}
               onUpdatePlayerStat={handleUpdatePlayerStat}
+              onClearShots={handleClearTableShots}
             />
           </div>
+        )}
 
-          {/* Right Column: Comprehensive Stats Dashboard */}
-          <div className="lg:col-span-5 flex flex-col space-y-3">
-            <StatsDashboard
-              overallStats={overallStats}
-              zoneStats={zoneStats}
+        {/* VIEW 3: TABLE ONLY */}
+        {mainView === 'table_only' && (
+          <div className="space-y-4">
+            <DataTableManager
               players={players}
-              shots={filteredShots}
+              shots={shots}
               playerStats={playerStats}
-              onUpdatePlayerStat={handleUpdatePlayerStat}
               activePlayerId={activePlayerId}
-              selectedZoneFilter={selectedZoneFilter}
-              onSelectZoneFilter={setSelectedZoneFilter}
+              onSelectPlayer={setActivePlayerId}
+              onAddShot={handleAddTableShot}
+              onAddBatchShots={handleAddBatchShots}
               onDeleteShot={handleDeleteShot}
               onToggleShotResult={handleToggleShotResult}
+              onUpdatePlayerStat={handleUpdatePlayerStat}
+              onClearShots={handleClearTableShots}
             />
+
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+              <div className="lg:col-span-6">
+                <Court
+                  shots={filteredShots}
+                  players={players}
+                  playerStats={playerStats}
+                  activePlayerId={activePlayerId}
+                  onSelectPlayer={setActivePlayerId}
+                  onOpenRosterManager={() => setRosterManagerOpen(true)}
+                  onOpenNewPlayerModal={() => {
+                    setPlayerToEdit(null);
+                    setPlayerModalOpen(true);
+                  }}
+                  selectedZoneFilter={selectedZoneFilter}
+                  onSelectZoneFilter={setSelectedZoneFilter}
+                  onCourtClick={handleCourtClick}
+                  onDeleteShot={handleDeleteShot}
+                  onToggleShotResult={handleToggleShotResult}
+                  courtTheme={courtTheme}
+                  onToggleTheme={() =>
+                    setCourtTheme((prev) => (prev === 'hardwood' ? 'tactical' : 'hardwood'))
+                  }
+                  viewMode={viewMode}
+                  onChangeViewMode={setViewMode}
+                  zoneStats={zoneStats}
+                  fastMode={fastMode}
+                  fastModeResult={fastModeResult}
+                  onToggleFastModeResult={() => setFastModeResult((prev) => !prev)}
+                  onToggleFastMode={() => setFastMode((prev) => !prev)}
+                  soundEnabled={soundEnabled}
+                  onToggleSound={() => setSoundEnabled((prev) => !prev)}
+                  onUndoLastShot={handleUndoLastShot}
+                  canUndo={shots.length > 0}
+                  onUpdatePlayerStat={handleUpdatePlayerStat}
+                />
+              </div>
+              <div className="lg:col-span-6">
+                <StatsDashboard
+                  overallStats={overallStats}
+                  zoneStats={zoneStats}
+                  players={players}
+                  shots={filteredShots}
+                  playerStats={playerStats}
+                  onUpdatePlayerStat={handleUpdatePlayerStat}
+                  activePlayerId={activePlayerId}
+                  selectedZoneFilter={selectedZoneFilter}
+                  onSelectZoneFilter={setSelectedZoneFilter}
+                  onDeleteShot={handleDeleteShot}
+                  onToggleShotResult={handleToggleShotResult}
+                />
+              </div>
+            </div>
           </div>
-        </div>
+        )}
       </main>
 
       {/* Manual Shot Confirmation Modal */}

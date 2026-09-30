@@ -218,3 +218,34 @@ export function getEfficiencyLevel(percentage: number, isThree: boolean): 'hot' 
     return 'cold';
   }
 }
+
+/**
+ * Returns representative court coordinates (x, y percentages) for a given zone.
+ * Useful when entering shots manually via table or forms.
+ */
+export function getZoneRepresentativeCoords(zoneId: ShotZoneId, addJitter: boolean = true): { x: number; y: number } {
+  const baseMap: Record<ShotZoneId, { x: number; y: number }> = {
+    restricted_area: { x: 50, y: 11 },
+    paint: { x: 50, y: 26 },
+    mid_left_corner: { x: 18, y: 12 },
+    mid_left_wing: { x: 26, y: 35 },
+    mid_center: { x: 50, y: 44 },
+    mid_right_wing: { x: 74, y: 35 },
+    mid_right_corner: { x: 82, y: 12 },
+    three_left_corner: { x: 6, y: 10 },
+    three_left_wing: { x: 17, y: 55 },
+    three_center: { x: 50, y: 68 },
+    three_right_wing: { x: 83, y: 55 },
+    three_right_corner: { x: 94, y: 10 },
+  };
+
+  const base = baseMap[zoneId] || { x: 50, y: 25 };
+  if (!addJitter) return base;
+
+  const jitterX = (Math.random() - 0.5) * 3;
+  const jitterY = (Math.random() - 0.5) * 3;
+  return {
+    x: Math.max(2, Math.min(98, Number((base.x + jitterX).toFixed(1)))),
+    y: Math.max(2, Math.min(98, Number((base.y + jitterY).toFixed(1)))),
+  };
+}
