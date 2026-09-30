@@ -13,6 +13,61 @@
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
+    <script>
+      (function() {
+        // Fallback for static servers like GitHub Pages root serving raw index.html
+        window.addEventListener('DOMContentLoaded', function() {
+          setTimeout(function() {
+            var root = document.getElementById('root');
+            if (root && (!root.hasChildNodes() || root.innerHTML.trim() === '')) {
+              var currentPath = window.location.pathname;
+              var basePath = currentPath.substring(0, currentPath.lastIndexOf('/') + 1);
+              var localAppUrl = basePath + 'shot_tracker_local.html' + window.location.search + window.location.hash;
+              var docsUrl = basePath + 'docs/' + window.location.search + window.location.hash;
+
+              // Try redirecting to standalone html or docs/
+              fetch(basePath + 'shot_tracker_local.html', { method: 'HEAD' })
+                .then(function(res) {
+                  if (res.ok) {
+                    window.location.replace(localAppUrl);
+                  } else {
+                    return fetch(basePath + 'docs/index.html', { method: 'HEAD' });
+                  }
+                })
+                .then(function(res2) {
+                  if (res2 && res2.ok) {
+                    window.location.replace(docsUrl);
+                  } else {
+                    renderGithubGuide();
+                  }
+                })
+                .catch(renderGithubGuide);
+
+              function renderGithubGuide() {
+                if (root && (!root.hasChildNodes() || root.innerHTML.trim() === '')) {
+                  root.innerHTML = '<div style="font-family:system-ui,-apple-system,sans-serif;background:#090d16;color:#f8fafc;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;">' +
+                    '<div style="max-width:580px;background:#131d2e;padding:32px;border-radius:20px;border:1px solid #1e293b;text-align:left;box-shadow:0 20px 40px rgba(0,0,0,0.6);">' +
+                    '<h2 style="color:#f59e0b;margin-top:0;font-size:22px;font-weight:900;">🏀 BasketShot - GitHub Pages</h2>' +
+                    '<p style="color:#cbd5e1;font-size:14px;line-height:1.6;">El repositorio se está sirviendo desde la raíz sin compilar. Elige una de estas opciones para activar la versión de producción:</p>' +
+                    '<div style="background:#0b111e;padding:16px;border-radius:12px;margin:16px 0;border:1px solid #1e293b;">' +
+                    '<strong style="color:#38bdf8;font-size:15px;">Opción 1: Carpeta /docs (La más rápida)</strong><br>' +
+                    '<span style="color:#94a3b8;font-size:13px;line-height:1.5;">En GitHub ve a <strong>Settings &rarr; Pages &rarr; Build and deployment</strong>.<br>Selecciona Source: <strong>Deploy from a branch</strong>, Branch: <strong>main</strong> y carpeta <strong>/docs</strong>. ¡Listo!</span>' +
+                    '</div>' +
+                    '<div style="background:#0b111e;padding:16px;border-radius:12px;margin:16px 0;border:1px solid #1e293b;">' +
+                    '<strong style="color:#10b981;font-size:15px;">Opción 2: GitHub Actions (Automático)</strong><br>' +
+                    '<span style="color:#94a3b8;font-size:13px;line-height:1.5;">En GitHub ve a <strong>Settings &rarr; Pages</strong> y cambia Source a <strong>GitHub Actions</strong>. Se usará el flujo incluido en <code>.github/workflows/deploy.yml</code>.</span>' +
+                    '</div>' +
+                    '<div style="text-align:center;margin-top:20px;">' +
+                    '<a href="./shot_tracker_local.html" style="display:inline-block;background:#f59e0b;color:#0f172a;text-decoration:none;padding:12px 24px;border-radius:12px;font-weight:900;font-size:14px;">Abrir Versión Autónoma Directa</a>' +
+                    '</div>' +
+                    '</div></div>';
+                }
+              }
+            }
+          }, 1500);
+        });
+      })();
+    </script>
   </body>
 </html>
 

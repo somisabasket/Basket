@@ -62,8 +62,12 @@ ${combinedScript}
 
 html = html.replace('</body>', injectedScript);
 
-// Save to dist/index.html, public/shot_tracker_local.html, and root
+// Save to dist/index.html, dist/404.html, and dist/.nojekyll
 fs.writeFileSync(distHtmlPath, html, 'utf8');
+
+const distDir = path.dirname(distHtmlPath);
+fs.writeFileSync(path.join(distDir, '404.html'), html, 'utf8');
+fs.writeFileSync(path.join(distDir, '.nojekyll'), '', 'utf8');
 
 const publicDir = path.join(__dirname, '..', 'public');
 if (!fs.existsSync(publicDir)) {
@@ -75,7 +79,19 @@ fs.writeFileSync(publicTarget, html, 'utf8');
 const rootTarget = path.join(__dirname, '..', 'shot_tracker_local.html');
 fs.writeFileSync(rootTarget, html, 'utf8');
 
-console.log('Successfully generated self-contained local HTML application:');
+// Also output to docs/ for direct GitHub Pages repository deployment
+const docsDir = path.join(__dirname, '..', 'docs');
+if (!fs.existsSync(docsDir)) {
+  fs.mkdirSync(docsDir, { recursive: true });
+}
+fs.writeFileSync(path.join(docsDir, 'index.html'), html, 'utf8');
+fs.writeFileSync(path.join(docsDir, '404.html'), html, 'utf8');
+fs.writeFileSync(path.join(docsDir, '.nojekyll'), '', 'utf8');
+
+console.log('Successfully generated production build compatible with GitHub Pages:');
 console.log(' - ' + distHtmlPath + ' (' + Math.round(html.length / 1024) + ' KB)');
+console.log(' - ' + path.join(distDir, '404.html'));
+console.log(' - ' + path.join(distDir, '.nojekyll'));
+console.log(' - ' + path.join(docsDir, 'index.html'));
 console.log(' - ' + publicTarget);
 console.log(' - ' + rootTarget);
